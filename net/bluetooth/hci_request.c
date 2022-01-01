@@ -979,12 +979,16 @@ void hci_req_add_le_passive_scan(struct hci_request *req)
 
 static void hci_req_clear_event_filter(struct hci_request *req)
 {
+	struct hci_dev *hdev = req->hdev;
 	struct hci_cp_set_event_filter f;
 
-	if (!hci_dev_test_flag(req->hdev, HCI_BREDR_ENABLED))
+	if (!hci_dev_test_flag(hdev, HCI_BREDR_ENABLED))
 		return;
 
-	if (hci_dev_test_flag(req->hdev, HCI_EVENT_FILTER_CONFIGURED)) {
+	if (test_bit(HCI_QUIRK_BROKEN_FILTER_CLEAR_ALL, &hdev->quirks))
+		return;
+
+	if (hci_dev_test_flag(hdev, HCI_EVENT_FILTER_CONFIGURED)) {
 		memset(&f, 0, sizeof(f));
 		f.flt_type = HCI_FLT_CLEAR_ALL;
 		hci_req_add(req, HCI_OP_SET_EVENT_FLT, 1, &f);
@@ -993,13 +997,16 @@ static void hci_req_clear_event_filter(struct hci_request *req)
 
 static void hci_req_set_event_filter(struct hci_request *req)
 {
+	struct hci_dev *hdev = req->hdev;
 	struct bdaddr_list_with_flags *b;
 	struct hci_cp_set_event_filter f;
-	struct hci_dev *hdev = req->hdev;
 	u8 scan = SCAN_DISABLED;
 	bool scanning = test_bit(HCI_PSCAN, &hdev->flags);
 
 	if (!hci_dev_test_flag(hdev, HCI_BREDR_ENABLED))
+		return;
+
+	if (test_bit(HCI_QUIRK_BROKEN_FILTER_CLEAR_ALL, &hdev->quirks))
 		return;
 
 	/* Always clear event filter when starting */
